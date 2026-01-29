@@ -528,6 +528,18 @@ export async function modelsStatusCommand(
       }
     }
 
+    // Re-read auth health after usage fetch, which may have refreshed expired tokens
+    const refreshedStore = ensureAuthProfileStore();
+    const refreshedHealth = buildAuthHealthSummary({
+      store: refreshedStore,
+      cfg,
+      warnAfterMs: DEFAULT_OAUTH_WARN_MS,
+      providers,
+    });
+    const refreshedOauthProfiles = refreshedHealth.profiles.filter(
+      (profile) => profile.type === "oauth" || profile.type === "token",
+    );
+
     const formatStatus = (status: string) => {
       if (status === "ok") return colorize(rich, theme.success, "ok");
       if (status === "static") return colorize(rich, theme.muted, "static");
@@ -536,8 +548,8 @@ export async function modelsStatusCommand(
       return colorize(rich, theme.error, "expired");
     };
 
-    const profilesByProvider = new Map<string, typeof oauthProfiles>();
-    for (const profile of oauthProfiles) {
+    const profilesByProvider = new Map<string, typeof refreshedOauthProfiles>();
+    for (const profile of refreshedOauthProfiles) {
       const current = profilesByProvider.get(profile.provider);
       if (current) current.push(profile);
       else profilesByProvider.set(profile.provider, [profile]);
