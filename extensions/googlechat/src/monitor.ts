@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-import type { MoltbotConfig } from "clawdbot/plugin-sdk";
+import type { ClawdbotConfig } from "clawdbot/plugin-sdk";
 import { resolveMentionGatingWithBypass } from "clawdbot/plugin-sdk";
 
 import {
@@ -11,6 +11,8 @@ import {
   deleteGoogleChatMessage,
   sendGoogleChatMessage,
   updateGoogleChatMessage,
+  getGoogleChatMessage,
+  getThreadParentMessage,
 } from "./api.js";
 import { verifyGoogleChatRequest, type GoogleChatAudienceType } from "./auth.js";
 import { getGoogleChatRuntime } from "./runtime.js";
@@ -30,7 +32,7 @@ export type GoogleChatRuntimeEnv = {
 
 export type GoogleChatMonitorOptions = {
   account: ResolvedGoogleChatAccount;
-  config: MoltbotConfig;
+  config: ClawdbotConfig;
   runtime: GoogleChatRuntimeEnv;
   abortSignal: AbortSignal;
   webhookPath?: string;
@@ -42,7 +44,7 @@ type GoogleChatCoreRuntime = ReturnType<typeof getGoogleChatRuntime>;
 
 type WebhookTarget = {
   account: ResolvedGoogleChatAccount;
-  config: MoltbotConfig;
+  config: ClawdbotConfig;
   runtime: GoogleChatRuntimeEnv;
   core: GoogleChatCoreRuntime;
   path: string;
@@ -263,6 +265,19 @@ export async function handleGoogleChatWebhookRequest(
   }
 
   selected.statusSink?.({ lastInboundAt: Date.now() });
+  
+  // For synchronous responses in spaces, we need to return a proper message
+  const evtType = (event.type ?? (event as { eventType?: string }).eventType)?.toUpperCase();
+  const isGroup = event.space?.type?.toUpperCase() !== "DM";
+  
+  // For non-MESSAGE events in groups (like ADDED_TO_SPACE), return an acknowledgment
+  if (isGroup && evtType !== "MESSAGE") {
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ text: "Hello! I'm Chopper! 🦌" }));
+    return true;
+  }
+  
   processGoogleChatEvent(event, selected).catch((err) => {
     selected?.runtime.error?.(
       `[${selected.account.accountId}] Google Chat webhook failed: ${String(err)}`,
@@ -357,24 +372,24 @@ function extractMentionInfo(annotations: GoogleChatAnnotation[], botUser?: strin
  * Resolve bot display name with fallback chain:
  * 1. Account config name
  * 2. Agent name from config
- * 3. "Moltbot" as generic fallback
+ * 3. "Clawdbot" as generic fallback
  */
 function resolveBotDisplayName(params: {
   accountName?: string;
   agentId: string;
-  config: MoltbotConfig;
+  config: ClawdbotConfig;
 }): string {
   const { accountName, agentId, config } = params;
   if (accountName?.trim()) return accountName.trim();
   const agent = config.agents?.list?.find((a) => a.id === agentId);
   if (agent?.name?.trim()) return agent.name.trim();
-  return "Moltbot";
+  return "Clawdbot";
 }
 
 async function processMessageWithPipeline(params: {
   event: GoogleChatEvent;
   account: ResolvedGoogleChatAccount;
-  config: MoltbotConfig;
+  config: ClawdbotConfig;
   runtime: GoogleChatRuntimeEnv;
   core: GoogleChatCoreRuntime;
   statusSink?: (patch: { lastInboundAt?: number; lastOutboundAt?: number }) => void;
@@ -409,7 +424,7 @@ async function processMessageWithPipeline(params: {
   const messageText = (message.argumentText ?? message.text ?? "").trim();
   const attachments = message.attachment ?? [];
   const hasMedia = attachments.length > 0;
-  const rawBody = messageText || (hasMedia ? "<media:attachment>" : "");
+  let rawBody = messageText || (hasMedia ? "<media:attachment>" : "");
   if (!rawBody) return;
 
   const defaultGroupPolicy = config.channels?.defaults?.groupPolicy;
@@ -586,6 +601,39 @@ async function processMessageWithPipeline(params: {
     agentId: route.agentId,
   });
   const envelopeOptions = core.channel.reply.resolveEnvelopeFormatOptions(config);
+  // Fetch quoted message content BEFORE creating body
+  let quotedMessageText: string | undefined;
+  const quotedName = message.quotedMessageMetadata?.name;
+  if (quotedName) {
+    try {
+      const quotedMsg = await getGoogleChatMessage({
+        account,
+        messageName: quotedName,
+      });
+      quotedMessageText = quotedMsg?.text;
+    } catch {
+      // Ignore fetch errors
+    }
+  }
+
+  // Fetch thread parent message for thread replies
+  let threadParentText: string | undefined;
+  if (message.threadReply && message.thread?.name) {
+    try {
+      const parentMsg = await getThreadParentMessage({
+        account,
+        threadResourceName: message.thread.name,
+      });
+      threadParentText = parentMsg?.text;
+    } catch {
+      // Ignore fetch errors
+    }
+  }
+  // Include thread parent context in rawBody for visibility
+  if (threadParentText && !quotedMessageText) {
+    rawBody = `[THREAD PARENT: "${threadParentText.substring(0, 200)}${threadParentText.length > 200 ? '...' : ''}"] ${rawBody}`;
+  }
+
   const previousTimestamp = core.channel.session.readSessionUpdatedAt({
     storePath,
     sessionKey: route.sessionKey,
@@ -629,6 +677,11 @@ async function processMessageWithPipeline(params: {
     GroupSystemPrompt: isGroup ? groupSystemPrompt : undefined,
     OriginatingChannel: "googlechat",
     OriginatingTo: `googlechat:${spaceId}`,
+    // Thread reply context
+    IsThreadReply: message.threadReply,
+    QuotedMessageId: message.quotedMessageMetadata?.name,
+    QuotedMessageText: quotedMessageText,
+    ThreadParentText: threadParentText,
   });
 
   void core.channel.session
@@ -726,7 +779,7 @@ async function deliverGoogleChatReply(params: {
   spaceId: string;
   runtime: GoogleChatRuntimeEnv;
   core: GoogleChatCoreRuntime;
-  config: MoltbotConfig;
+  config: ClawdbotConfig;
   statusSink?: (patch: { lastInboundAt?: number; lastOutboundAt?: number }) => void;
   typingMessageName?: string;
 }): Promise<void> {
