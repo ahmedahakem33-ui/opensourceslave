@@ -275,6 +275,41 @@ async function runStep(opts: RunStepOptions): Promise<UpdateStepResult> {
   };
 }
 
+function skipStep(
+  opts: Pick<RunStepOptions, "name" | "argv" | "cwd" | "progress" | "stepIndex" | "totalSteps"> & {
+    stdoutTail?: string | null;
+    stderrTail?: string | null;
+  },
+): UpdateStepResult {
+  const { name, argv, cwd, progress, stepIndex, totalSteps, stdoutTail, stderrTail } = opts;
+  const command = argv.join(" ");
+
+  const stepInfo: UpdateStepInfo = {
+    name,
+    command,
+    index: stepIndex,
+    total: totalSteps,
+  };
+
+  progress?.onStepStart?.(stepInfo);
+  progress?.onStepComplete?.({
+    ...stepInfo,
+    durationMs: 0,
+    exitCode: 0,
+    stderrTail: stderrTail ?? null,
+  });
+
+  return {
+    name,
+    command,
+    cwd,
+    durationMs: 0,
+    exitCode: 0,
+    stdoutTail: stdoutTail ?? null,
+    stderrTail: stderrTail ?? null,
+  };
+}
+
 function managerScriptArgs(manager: "pnpm" | "bun" | "npm", script: string, args: string[] = []) {
   if (manager === "pnpm") return ["pnpm", script, ...args];
   if (manager === "bun") return ["bun", "run", script, ...args];
@@ -678,13 +713,26 @@ export async function runGatewayUpdate(opts: UpdateRunnerOptions = {}): Promise<
 
     // Restore dist/control-ui/ to committed state to prevent dirty repo after update
     // (ui:build regenerates assets with new hashes, which would block future updates)
-    const restoreUiStep = await runStep(
-      step(
-        "restore control-ui",
-        ["git", "-C", gitRoot, "checkout", "--", "dist/control-ui/"],
-        gitRoot,
-      ),
+    const restoreUiOpts = step(
+      "restore control-ui",
+      ["git", "-C", gitRoot, "checkout", "--", "dist/control-ui/"],
+      gitRoot,
     );
+    const lsFilesResult = await runCommand(
+      ["git", "-C", gitRoot, "ls-files", "--", "dist/control-ui/"],
+      {
+        cwd: gitRoot,
+        timeoutMs,
+      },
+    );
+    const hasTrackedControlUiFiles =
+      lsFilesResult.code === 0 && lsFilesResult.stdout.trim().length > 0;
+    const restoreUiStep = hasTrackedControlUiFiles
+      ? await runStep(restoreUiOpts)
+      : skipStep({
+          ...restoreUiOpts,
+          stdoutTail: "Skipped: dist/control-ui/ is not tracked in git.",
+        });
     steps.push(restoreUiStep);
 
     const doctorStep = await runStep(
