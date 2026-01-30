@@ -467,6 +467,90 @@ export async function runEmbeddedAttempt(
         throw new Error("Embedded agent session missing");
       }
       const activeSession = session;
+
+      // Initialize extension runner with proper context actions
+      // Without this, ctx.model is undefined during compaction (extensions use default getModel = () => undefined)
+      if (activeSession.extensionRunner) {
+        activeSession.extensionRunner.initialize(
+          // ExtensionActions
+          {
+            sendMessage: (msg, opts) => {
+              activeSession.sendCustomMessage(msg, opts).catch((e) => {
+                log.error(
+                  `Extension sendMessage failed: ${e instanceof Error ? e.message : String(e)}`,
+                );
+              });
+            },
+            sendUserMessage: (content, opts) => {
+              activeSession.sendUserMessage(content, opts).catch((e) => {
+                log.error(
+                  `Extension sendUserMessage failed: ${e instanceof Error ? e.message : String(e)}`,
+                );
+              });
+            },
+            appendEntry: (type, data) => activeSession.sessionManager.appendCustomEntry(type, data),
+            setSessionName: (name) => activeSession.sessionManager.appendSessionInfo(name),
+            getSessionName: () => activeSession.sessionManager.getSessionName(),
+            setLabel: (id, label) => activeSession.sessionManager.appendLabelChange(id, label),
+            getActiveTools: () => activeSession.getActiveToolNames(),
+            getAllTools: () => activeSession.getAllTools(),
+            setActiveTools: (names) => activeSession.setActiveToolsByName(names),
+            setModel: async (model) => {
+              const key = await activeSession.modelRegistry.getApiKey(model);
+              if (!key) return false;
+              await activeSession.setModel(model);
+              return true;
+            },
+            getThinkingLevel: () => activeSession.thinkingLevel,
+            setThinkingLevel: (level) => activeSession.setThinkingLevel(level),
+          },
+          // ExtensionContextActions
+          {
+            getModel: () => activeSession.model,
+            isIdle: () => !activeSession.isStreaming,
+            abort: () => activeSession.abort(),
+            hasPendingMessages: () => activeSession.pendingMessageCount > 0,
+            shutdown: () => {},
+            getContextUsage: () => activeSession.getContextUsage(),
+            compact: (options) => {
+              void (async () => {
+                try {
+                  const result = await activeSession.compact(options?.customInstructions);
+                  options?.onComplete?.(result);
+                } catch (error) {
+                  const err = error instanceof Error ? error : new Error(String(error));
+                  options?.onError?.(err);
+                }
+              })();
+            },
+          },
+          // CommandContextActions
+          {
+            waitForIdle: () => activeSession.agent.waitForIdle(),
+            newSession: async (options) => {
+              const success = await activeSession.newSession({
+                parentSession: options?.parentSession,
+              });
+              return { cancelled: !success };
+            },
+            fork: async (entryId) => {
+              const result = await activeSession.fork(entryId);
+              return { cancelled: result.cancelled };
+            },
+            navigateTree: async (targetId, options) => {
+              const result = await activeSession.navigateTree(targetId, {
+                summarize: options?.summarize,
+                customInstructions: options?.customInstructions,
+                replaceInstructions: options?.replaceInstructions,
+                label: options?.label,
+              });
+              return { cancelled: result.cancelled };
+            },
+          },
+          undefined, // uiContext - not needed for embedded mode
+        );
+      }
+
       const cacheTrace = createCacheTrace({
         cfg: params.config,
         env: process.env,
