@@ -1,6 +1,6 @@
 import os from "node:os";
 import path from "node:path";
-import { normalizeAgentId } from "../../agents/agent-paths.js";
+/* unused import */
 import { resolveSessionVaultDir, resolveSessionVaultRoot } from "../../infra/storage.js";
 import { DEFAULT_AGENT_ID } from "../../routing/session-key.js";
 import type { SessionEntry } from "./types.js";
@@ -71,6 +71,8 @@ export function resolveSessionFilePath(
   const candidate = entry?.sessionFile?.trim();
   return candidate ? candidate : resolveSessionTranscriptPath(sessionId, opts?.agentId);
 }
+
+const normalizeAgentId = (id: string) => id.trim();
 
 export function resolveStorePath(store?: string, opts?: { agentId?: string }) {
   const agentId = normalizeAgentId(opts?.agentId ?? DEFAULT_AGENT_ID);
