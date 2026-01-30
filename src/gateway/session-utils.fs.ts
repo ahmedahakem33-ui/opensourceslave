@@ -2,7 +2,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { resolveSessionTranscriptPath } from "../config/sessions.js";
+import {
+  resolveLegacySessionTranscriptPath,
+  resolveSessionTranscriptPath,
+} from "../config/sessions.js";
 import { stripEnvelope } from "./chat-sanitize.js";
 import type { SessionPreviewItem } from "./session-utils.types.js";
 
@@ -48,12 +51,15 @@ export function resolveSessionTranscriptCandidates(
   }
   if (storePath) {
     const dir = path.dirname(storePath);
+    candidates.push(path.join(dir, sessionId, "transcript.jsonl"));
     candidates.push(path.join(dir, `${sessionId}.jsonl`));
   }
   if (agentId) {
     candidates.push(resolveSessionTranscriptPath(sessionId, agentId));
+    candidates.push(resolveLegacySessionTranscriptPath(sessionId, agentId));
   }
   const home = os.homedir();
+  candidates.push(path.join(home, ".openclaw", "sessions", sessionId, "transcript.jsonl"));
   candidates.push(path.join(home, ".openclaw", "sessions", `${sessionId}.jsonl`));
   return candidates;
 }

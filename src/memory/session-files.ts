@@ -19,19 +19,16 @@ export type SessionFileEntry = {
 export async function listSessionFilesForAgent(agentId: string): Promise<string[]> {
   const dir = resolveSessionTranscriptsDirForAgent(agentId);
   try {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    return entries
-      .filter((entry) => entry.isFile())
-      .map((entry) => entry.name)
-      .filter((name) => name.endsWith(".jsonl"))
-      .map((name) => path.join(dir, name));
+    return await listJsonlFilesRecursive(dir);
   } catch {
     return [];
   }
 }
 
-export function sessionPathForFile(absPath: string): string {
-  return path.join("sessions", path.basename(absPath)).replace(/\\/g, "/");
+export function sessionPathForFile(absPath: string, agentId?: string): string {
+  const sessionsDir = resolveSessionTranscriptsDirForAgent(agentId);
+  const relative = path.relative(sessionsDir, absPath);
+  return path.join("sessions", relative).replace(/\\/g, "/");
 }
 
 function normalizeSessionText(value: string): string {
@@ -69,7 +66,10 @@ export function extractSessionText(content: unknown): string | null {
   return parts.join(" ");
 }
 
-export async function buildSessionEntry(absPath: string): Promise<SessionFileEntry | null> {
+export async function buildSessionEntry(
+  absPath: string,
+  agentId?: string,
+): Promise<SessionFileEntry | null> {
   try {
     const stat = await fs.stat(absPath);
     const raw = await fs.readFile(absPath, "utf-8");
@@ -110,7 +110,7 @@ export async function buildSessionEntry(absPath: string): Promise<SessionFileEnt
     }
     const content = collected.join("\n");
     return {
-      path: sessionPathForFile(absPath),
+      path: sessionPathForFile(absPath, agentId),
       absPath,
       mtimeMs: stat.mtimeMs,
       size: stat.size,
@@ -121,4 +121,21 @@ export async function buildSessionEntry(absPath: string): Promise<SessionFileEnt
     log.debug(`Failed reading session file ${absPath}: ${String(err)}`);
     return null;
   }
+}
+
+async function listJsonlFilesRecursive(dir: string): Promise<string[]> {
+  const results: string[] = [];
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      const nested = await listJsonlFilesRecursive(fullPath);
+      results.push(...nested);
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith(".jsonl")) {
+      results.push(fullPath);
+    }
+  }
+  return results;
 }

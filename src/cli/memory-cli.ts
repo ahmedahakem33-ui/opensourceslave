@@ -102,10 +102,8 @@ async function scanSessionFiles(agentId: string): Promise<SourceScan> {
   const issues: string[] = [];
   const sessionsDir = resolveSessionTranscriptsDirForAgent(agentId);
   try {
-    const entries = await fs.readdir(sessionsDir, { withFileTypes: true });
-    const totalFiles = entries.filter(
-      (entry) => entry.isFile() && entry.name.endsWith(".jsonl"),
-    ).length;
+    const entries = await listJsonlFilesRecursive(sessionsDir);
+    const totalFiles = entries.length;
     return { source: "sessions", totalFiles, issues };
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
@@ -118,6 +116,23 @@ async function scanSessionFiles(agentId: string): Promise<SourceScan> {
     );
     return { source: "sessions", totalFiles: null, issues };
   }
+}
+
+async function listJsonlFilesRecursive(dir: string): Promise<string[]> {
+  const results: string[] = [];
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      const nested = await listJsonlFilesRecursive(fullPath);
+      results.push(...nested);
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith(".jsonl")) {
+      results.push(fullPath);
+    }
+  }
+  return results;
 }
 
 async function scanMemoryFiles(

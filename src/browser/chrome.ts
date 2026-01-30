@@ -5,6 +5,7 @@ import path from "node:path";
 import WebSocket from "ws";
 
 import { ensurePortAvailable } from "../infra/ports.js";
+import { resolveSessionVaultPath } from "../infra/storage.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
 import { CONFIG_DIR } from "../utils.js";
 import { getHeadersWithAuth, normalizeCdpWsUrl } from "./cdp.js";
@@ -60,7 +61,14 @@ function resolveBrowserExecutable(resolved: ResolvedBrowserConfig): BrowserExecu
   return resolveBrowserExecutableForPlatform(resolved, process.platform);
 }
 
-export function resolveOpenClawUserDataDir(profileName = DEFAULT_OPENCLAW_BROWSER_PROFILE_NAME) {
+export function resolveOpenClawUserDataDir(
+  profileName = DEFAULT_OPENCLAW_BROWSER_PROFILE_NAME,
+  opts?: { sessionId?: string; agentId?: string },
+) {
+  const sessionId = opts?.sessionId?.trim();
+  if (sessionId) {
+    return resolveSessionVaultPath(sessionId, ["browser", profileName, "user-data"], opts.agentId);
+  }
   return path.join(CONFIG_DIR, "browser", profileName, "user-data");
 }
 

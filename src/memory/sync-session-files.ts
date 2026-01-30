@@ -34,7 +34,7 @@ export async function syncSessionFiles(params: {
   dirtyFiles: Set<string>;
 }) {
   const files = await listSessionFilesForAgent(params.agentId);
-  const activePaths = new Set(files.map((file) => sessionPathForFile(file)));
+  const activePaths = new Set(files.map((file) => sessionPathForFile(file, params.agentId)));
   const indexAll = params.needsFullReindex || params.dirtyFiles.size === 0;
 
   log.debug("memory sync: indexing session files", {
@@ -65,7 +65,7 @@ export async function syncSessionFiles(params: {
       }
       return;
     }
-    const entry = await buildSessionEntry(absPath);
+    const entry = await buildSessionEntry(absPath, params.agentId);
     if (!entry) {
       if (params.progress) {
         params.progress.completed += 1;

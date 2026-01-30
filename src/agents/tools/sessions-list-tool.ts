@@ -3,6 +3,7 @@ import path from "node:path";
 import { Type } from "@sinclair/typebox";
 
 import { loadConfig } from "../../config/config.js";
+import { resolveSessionTranscriptPath } from "../../config/sessions.js";
 import { callGateway } from "../../gateway/call.js";
 import { isSubagentSessionKey, resolveAgentIdFromSessionKey } from "../../routing/session-key.js";
 import type { AnyAgentTool } from "./common.js";
@@ -154,10 +155,11 @@ export function createSessionsListTool(opts?: {
         });
 
         const sessionId = typeof entry.sessionId === "string" ? entry.sessionId : undefined;
-        const transcriptPath =
-          sessionId && storePath
-            ? path.join(path.dirname(storePath), `${sessionId}.jsonl`)
-            : undefined;
+        const transcriptPath = sessionId
+          ? storePath
+            ? path.join(path.dirname(storePath), sessionId, "transcript.jsonl")
+            : resolveSessionTranscriptPath(sessionId, entryAgentId)
+          : undefined;
 
         const row: SessionListRow = {
           key: displayKey,

@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
+import path from "node:path";
 
 import { resolveOpenClawAgentDir } from "../../agents/agent-paths.js";
 import {
@@ -314,6 +315,7 @@ async function probeTarget(params: {
   const sessionId = `probe-${target.provider}-${crypto.randomUUID()}`;
   const sessionFile = resolveSessionTranscriptPath(sessionId, agentId);
   await fs.mkdir(sessionDir, { recursive: true });
+  await fs.mkdir(path.dirname(sessionFile), { recursive: true });
 
   const start = Date.now();
   try {

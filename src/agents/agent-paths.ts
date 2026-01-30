@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { resolveStateDir } from "../config/paths.js";
+import { resolveSessionVaultDir, resolveSessionVaultRoot } from "../infra/storage.js";
 import { DEFAULT_AGENT_ID } from "../routing/session-key.js";
 import { resolveUserPath } from "../utils.js";
 
@@ -23,4 +24,12 @@ export function ensureOpenClawAgentEnv(): string {
     process.env.PI_CODING_AGENT_DIR = dir;
   }
   return dir;
+}
+
+export function resolveSessionVaultRootForAgent(agentId?: string): string {
+  return resolveSessionVaultRoot(agentId);
+}
+
+export function resolveSessionVaultDirForSession(sessionId: string, agentId?: string): string {
+  return resolveSessionVaultDir(sessionId, agentId);
 }

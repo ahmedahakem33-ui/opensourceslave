@@ -131,7 +131,10 @@ export async function runCliAgent(params: {
   let cleanupImages: (() => Promise<void>) | undefined;
   let prompt = params.prompt;
   if (params.images && params.images.length > 0) {
-    const imagePayload = await writeCliImages(params.images);
+    const imagePayload = await writeCliImages(params.images, {
+      sessionId: params.sessionId,
+      agentId: sessionAgentId,
+    });
     imagePaths = imagePayload.paths;
     cleanupImages = imagePayload.cleanup;
     if (!backend.imageArg) {
