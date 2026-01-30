@@ -10,6 +10,7 @@ import {
   type ExecSecurity,
   type ExecApprovalsFile,
   addAllowlistEntry,
+  analyzeShellCommand,
   evaluateShellAllowlist,
   maxAsk,
   minSecurity,
@@ -76,6 +77,7 @@ const DEFAULT_APPROVAL_TIMEOUT_MS = 120_000;
 const DEFAULT_APPROVAL_REQUEST_TIMEOUT_MS = 130_000;
 const DEFAULT_APPROVAL_RUNNING_NOTICE_MS = 10_000;
 const APPROVAL_SLUG_LENGTH = 8;
+const SHIELD_SHELL_BLOCKLIST = new Set(["rm", "chmod", "env", "curl"]);
 
 type PtyExitEvent = { exitCode: number; signal?: number };
 type PtyListener<T> = (event: T) => void;
@@ -165,6 +167,12 @@ const execSchema = Type.Object({
         "Run in a pseudo-terminal (PTY) when available (TTY-required CLIs, coding agents)",
     }),
   ),
+  dangerously_bypass_approvals_and_sandbox: Type.Optional(
+    Type.Boolean({
+      description:
+        "Allow Shield-Shell blocked commands (rm, chmod, env, curl). Use only in a sandbox or when explicitly approved.",
+    }),
+  ),
   elevated: Type.Optional(
     Type.Boolean({
       description: "Run on the host with elevated permissions (if allowed)",
@@ -249,6 +257,60 @@ function renderExecHostLabel(host: ExecHost) {
 
 function normalizeNotifyOutput(value: string) {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function isEnvAssignment(token: string) {
+  return /^[A-Za-z_][A-Za-z0-9_]*=/.test(token);
+}
+
+function resolveSegmentExecutable(argv: string[]): string | null {
+  let i = 0;
+  while (i < argv.length) {
+    const token = argv[i]?.trim();
+    if (!token) {
+      i += 1;
+      continue;
+    }
+    if (token === "sudo") {
+      i += 1;
+      while (i < argv.length && argv[i]?.startsWith("-")) i += 1;
+      continue;
+    }
+    if (isEnvAssignment(token)) {
+      i += 1;
+      continue;
+    }
+    return token;
+  }
+  return null;
+}
+
+function normalizeExecutableName(token: string) {
+  if (!token) return "";
+  const parsed = path.parse(token);
+  return (parsed.name || token).toLowerCase();
+}
+
+function findShieldShellMatches(command: string, cwd?: string, env?: NodeJS.ProcessEnv) {
+  const matches = new Set<string>();
+  const analysis = analyzeShellCommand({ command, cwd, env });
+  if (analysis.ok) {
+    for (const segment of analysis.segments) {
+      const token = resolveSegmentExecutable(segment.argv);
+      if (!token) continue;
+      const normalized = normalizeExecutableName(token);
+      if (SHIELD_SHELL_BLOCKLIST.has(normalized)) {
+        matches.add(normalized);
+      }
+    }
+  } else {
+    const fallback = /(?:^|[;&|]\s*)(?:sudo\s+)?(rm|chmod|env|curl)(?:\s|$)/gi;
+    let match: RegExpExecArray | null;
+    while ((match = fallback.exec(command))) {
+      matches.add(match[1]?.toLowerCase());
+    }
+  }
+  return [...matches];
 }
 
 function normalizePathPrepend(entries?: string[]) {
@@ -795,6 +857,7 @@ export function createExecTool(
         security?: string;
         ask?: string;
         node?: string;
+        dangerously_bypass_approvals_and_sandbox?: boolean;
       };
 
       if (!params.command) {
@@ -934,6 +997,18 @@ export function createExecTool(
         applyShellPath(env, shellPath);
       }
       applyPathPrepend(env, defaultPathPrepend);
+
+      const bypassShield = params.dangerously_bypass_approvals_and_sandbox === true;
+      const shieldMatches = findShieldShellMatches(params.command, workdir, env);
+      if (shieldMatches.length > 0 && !bypassShield) {
+        const list = shieldMatches.join(", ");
+        throw new Error(
+          [
+            `Shield-Shell blocked execution: command uses ${list}.`,
+            "Run inside the sandbox or set dangerously_bypass_approvals_and_sandbox=true to proceed.",
+          ].join(" "),
+        );
+      }
 
       if (host === "node") {
         const approvals = resolveExecApprovals(agentId, { security, ask });
