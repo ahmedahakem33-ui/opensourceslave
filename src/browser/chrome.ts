@@ -67,7 +67,7 @@ export function resolveOpenClawUserDataDir(
 ) {
   const sessionId = opts?.sessionId?.trim();
   if (sessionId) {
-    return resolveSessionVaultPath(sessionId, ["browser", profileName, "user-data"], opts.agentId);
+    return resolveSessionVaultPath(sessionId, ["browser", profileName, "user-data"], opts?.agentId);
   }
   return path.join(CONFIG_DIR, "browser", profileName, "user-data");
 }

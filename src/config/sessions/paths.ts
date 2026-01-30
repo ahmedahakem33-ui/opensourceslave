@@ -1,5 +1,6 @@
 import os from "node:os";
 import path from "node:path";
+import { normalizeAgentId } from "../../agents/agent-paths.js";
 import { resolveSessionVaultDir, resolveSessionVaultRoot } from "../../infra/storage.js";
 import { DEFAULT_AGENT_ID } from "../../routing/session-key.js";
 import type { SessionEntry } from "./types.js";
@@ -42,8 +43,7 @@ export function resolveSessionTranscriptPath(
       : typeof topicId === "number"
         ? String(topicId)
         : undefined;
-  const fileName =
-    safeTopicId !== undefined ? `topic-${safeTopicId}.jsonl` : "transcript.jsonl";
+  const fileName = safeTopicId !== undefined ? `topic-${safeTopicId}.jsonl` : "transcript.jsonl";
   return path.join(resolveSessionVaultDir(sessionId, agentId), fileName);
 }
 
