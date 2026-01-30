@@ -359,7 +359,7 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
   const emitBlockChunk = (text: string) => {
     if (state.suppressBlockChunks) return;
     // Strip <think> and <final> blocks across chunk boundaries to avoid leaking reasoning.
-    const chunk = stripBlockTags(text, state.blockState).trimEnd();
+    const chunk = stripBlockTags(text, state.blockState).trim();
     if (!chunk) return;
     if (chunk === state.lastBlockReplyText) return;
 
