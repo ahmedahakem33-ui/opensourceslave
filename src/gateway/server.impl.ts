@@ -34,6 +34,7 @@ import type { PluginServicesHandle } from "../plugins/services.js";
 import type { RuntimeEnv } from "../runtime.js";
 import { runOnboardingWizard } from "../wizard/onboarding.js";
 import { startGatewayConfigReloader } from "./config-reload.js";
+import { SessionTTLManager } from "./session-ttl-cleanup.js";
 import {
   getHealthCache,
   getHealthVersion,
@@ -545,6 +546,9 @@ export async function startGatewayServer(
     watchPath: CONFIG_PATH,
   });
 
+  const sessionTTLManager = new SessionTTLManager((cfgAtStart.session as any)?.ttl);
+  sessionTTLManager.start();
+
   const close = createGatewayCloseHandler({
     bonjourStop,
     tailscaleCleanup,
@@ -572,6 +576,7 @@ export async function startGatewayServer(
 
   return {
     close: async (opts) => {
+      sessionTTLManager.stop();
       if (diagnosticsEnabled) {
         stopDiagnosticHeartbeat();
       }
