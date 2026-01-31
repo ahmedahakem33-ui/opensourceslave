@@ -1,6 +1,6 @@
 ---
 name: video-frames
-description: Extract frames or short clips from videos using ffmpeg.
+description: Extract individual frames from videos at specific timestamps or create thumbnail images for quick video inspection and sharing. Use when you want to grab a frame showing something at a specific moment or create a thumbnail for documentation.
 homepage: https://ffmpeg.org
 metadata: {"openclaw":{"emoji":"🎞️","requires":{"bins":["ffmpeg"]},"install":[{"id":"brew","kind":"brew","formula":"ffmpeg","bins":["ffmpeg"],"label":"Install ffmpeg (brew)"}]}}
 ---
