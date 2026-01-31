@@ -4,7 +4,7 @@ import path from "node:path";
 
 import type { BrowserRouteContext } from "../server-context.js";
 import { handleRouteError, readBody, requirePwAi, resolveProfileContext } from "./agent.shared.js";
-import { toBoolean, toStringOrEmpty } from "./utils.js";
+import { jsonError, toBoolean, toStringOrEmpty } from "./utils.js";
 import type { BrowserRouteRegistrar } from "./types.js";
 
 export function registerBrowserAgentDebugRoutes(
@@ -15,6 +15,9 @@ export function registerBrowserAgentDebugRoutes(
     const profileCtx = resolveProfileContext(req, res, ctx);
     if (!profileCtx) {
       return;
+    }
+    if (profileCtx.profile.driver === "rtrvr" || profileCtx.profile.driver === "rtrvr-cloud") {
+      return jsonError(res, 501, "Console messages are not supported for rtrvr.ai profiles");
     }
     const targetId = typeof req.query.targetId === "string" ? req.query.targetId.trim() : "";
     const level = typeof req.query.level === "string" ? req.query.level : "";
@@ -41,6 +44,9 @@ export function registerBrowserAgentDebugRoutes(
     if (!profileCtx) {
       return;
     }
+    if (profileCtx.profile.driver === "rtrvr" || profileCtx.profile.driver === "rtrvr-cloud") {
+      return jsonError(res, 501, "Page errors are not supported for rtrvr.ai profiles");
+    }
     const targetId = typeof req.query.targetId === "string" ? req.query.targetId.trim() : "";
     const clear = toBoolean(req.query.clear) ?? false;
 
@@ -65,6 +71,9 @@ export function registerBrowserAgentDebugRoutes(
     const profileCtx = resolveProfileContext(req, res, ctx);
     if (!profileCtx) {
       return;
+    }
+    if (profileCtx.profile.driver === "rtrvr" || profileCtx.profile.driver === "rtrvr-cloud") {
+      return jsonError(res, 501, "Network request tracing is not supported for rtrvr.ai profiles");
     }
     const targetId = typeof req.query.targetId === "string" ? req.query.targetId.trim() : "";
     const filter = typeof req.query.filter === "string" ? req.query.filter : "";
@@ -92,6 +101,9 @@ export function registerBrowserAgentDebugRoutes(
     const profileCtx = resolveProfileContext(req, res, ctx);
     if (!profileCtx) {
       return;
+    }
+    if (profileCtx.profile.driver === "rtrvr" || profileCtx.profile.driver === "rtrvr-cloud") {
+      return jsonError(res, 501, "Tracing is not supported for rtrvr.ai profiles");
     }
     const body = readBody(req);
     const targetId = toStringOrEmpty(body.targetId) || undefined;
@@ -121,6 +133,9 @@ export function registerBrowserAgentDebugRoutes(
     const profileCtx = resolveProfileContext(req, res, ctx);
     if (!profileCtx) {
       return;
+    }
+    if (profileCtx.profile.driver === "rtrvr" || profileCtx.profile.driver === "rtrvr-cloud") {
+      return jsonError(res, 501, "Tracing is not supported for rtrvr.ai profiles");
     }
     const body = readBody(req);
     const targetId = toStringOrEmpty(body.targetId) || undefined;
