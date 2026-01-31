@@ -1,7 +1,8 @@
 import os from "node:os";
 import path from "node:path";
-import { DEFAULT_AGENT_ID, normalizeAgentId } from "../../routing/session-key.js";
-import { resolveStateDir } from "../paths.js";
+/* unused import */
+import { resolveSessionVaultDir, resolveSessionVaultRoot } from "../../infra/storage.js";
+import { DEFAULT_AGENT_ID } from "../../routing/session-key.js";
 import type { SessionEntry } from "./types.js";
 
 function resolveAgentSessionsDir(
@@ -9,9 +10,7 @@ function resolveAgentSessionsDir(
   env: NodeJS.ProcessEnv = process.env,
   homedir: () => string = os.homedir,
 ): string {
-  const root = resolveStateDir(env, homedir);
-  const id = normalizeAgentId(agentId ?? DEFAULT_AGENT_ID);
-  return path.join(root, "agents", id, "sessions");
+  return resolveSessionVaultRoot(agentId, env, homedir);
 }
 
 export function resolveSessionTranscriptsDir(
@@ -44,6 +43,21 @@ export function resolveSessionTranscriptPath(
       : typeof topicId === "number"
         ? String(topicId)
         : undefined;
+  const fileName = safeTopicId !== undefined ? `topic-${safeTopicId}.jsonl` : "transcript.jsonl";
+  return path.join(resolveSessionVaultDir(sessionId, agentId), fileName);
+}
+
+export function resolveLegacySessionTranscriptPath(
+  sessionId: string,
+  agentId?: string,
+  topicId?: string | number,
+): string {
+  const safeTopicId =
+    typeof topicId === "string"
+      ? encodeURIComponent(topicId)
+      : typeof topicId === "number"
+        ? String(topicId)
+        : undefined;
   const fileName =
     safeTopicId !== undefined ? `${sessionId}-topic-${safeTopicId}.jsonl` : `${sessionId}.jsonl`;
   return path.join(resolveAgentSessionsDir(agentId), fileName);
@@ -57,6 +71,8 @@ export function resolveSessionFilePath(
   const candidate = entry?.sessionFile?.trim();
   return candidate ? candidate : resolveSessionTranscriptPath(sessionId, opts?.agentId);
 }
+
+const normalizeAgentId = (id: string) => id.trim();
 
 export function resolveStorePath(store?: string, opts?: { agentId?: string }) {
   const agentId = normalizeAgentId(opts?.agentId ?? DEFAULT_AGENT_ID);

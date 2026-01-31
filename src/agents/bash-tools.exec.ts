@@ -56,6 +56,7 @@ import { listNodes, resolveNodeIdFromList } from "./tools/nodes-utils.js";
 import { getShellConfig, sanitizeBinaryOutput } from "./shell-utils.js";
 import { buildCursorPositionResponse, stripDsrRequests } from "./pty-dsr.js";
 import { parseAgentSessionKey, resolveAgentIdFromSessionKey } from "../routing/session-key.js";
+import { findShieldShellMatches } from "./security/shield-shell.js";
 
 const DEFAULT_MAX_OUTPUT = clampNumber(
   readEnvInt("PI_BASH_MAX_OUTPUT_CHARS"),
@@ -163,6 +164,12 @@ const execSchema = Type.Object({
     Type.Boolean({
       description:
         "Run in a pseudo-terminal (PTY) when available (TTY-required CLIs, coding agents)",
+    }),
+  ),
+  dangerously_bypass_approvals_and_sandbox: Type.Optional(
+    Type.Boolean({
+      description:
+        "Allow Shield-Shell blocked commands (rm, chmod, env, curl). Use only in a sandbox or when explicitly approved.",
     }),
   ),
   elevated: Type.Optional(
@@ -795,6 +802,7 @@ export function createExecTool(
         security?: string;
         ask?: string;
         node?: string;
+        dangerously_bypass_approvals_and_sandbox?: boolean;
       };
 
       if (!params.command) {
@@ -934,6 +942,18 @@ export function createExecTool(
         applyShellPath(env, shellPath);
       }
       applyPathPrepend(env, defaultPathPrepend);
+
+      const bypassShield = params.dangerously_bypass_approvals_and_sandbox === true;
+      const shieldMatches = findShieldShellMatches(params.command, workdir, env);
+      if (shieldMatches.length > 0 && !bypassShield) {
+        const list = shieldMatches.join(", ");
+        throw new Error(
+          [
+            `Shield-Shell blocked execution: command uses ${list}.`,
+            "Run inside the sandbox or set dangerously_bypass_approvals_and_sandbox=true to proceed.",
+          ].join(" "),
+        );
+      }
 
       if (host === "node") {
         const approvals = resolveExecApprovals(agentId, { security, ask });

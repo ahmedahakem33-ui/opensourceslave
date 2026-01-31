@@ -3,7 +3,6 @@
  */
 
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { runEmbeddedPiAgent } from "../agents/pi-embedded.js";
 import type { OpenClawConfig } from "../config/config.js";
@@ -12,6 +11,7 @@ import {
   resolveAgentWorkspaceDir,
   resolveAgentDir,
 } from "../agents/agent-scope.js";
+import { resolveSessionTranscriptPath } from "../config/sessions/paths.js";
 
 /**
  * Generate a short 1-2 word filename slug from session content using LLM
@@ -28,8 +28,9 @@ export async function generateSlugViaLLM(params: {
     const agentDir = resolveAgentDir(params.cfg, agentId);
 
     // Create a temporary session file for this one-off LLM call
-    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-slug-"));
-    tempSessionFile = path.join(tempDir, "session.jsonl");
+    const sessionId = `slug-generator-${Date.now()}`;
+    tempSessionFile = resolveSessionTranscriptPath(sessionId, agentId);
+    await fs.mkdir(path.dirname(tempSessionFile), { recursive: true });
 
     const prompt = `Based on this conversation, generate a short 1-2 word filename slug (lowercase, hyphen-separated, no file extension).
 
@@ -39,7 +40,7 @@ ${params.sessionContent.slice(0, 2000)}
 Reply with ONLY the slug, nothing else. Examples: "vendor-pitch", "api-design", "bug-fix"`;
 
     const result = await runEmbeddedPiAgent({
-      sessionId: `slug-generator-${Date.now()}`,
+      sessionId,
       sessionKey: "temp:slug-generator",
       sessionFile: tempSessionFile,
       workspaceDir,

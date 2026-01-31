@@ -1581,19 +1581,16 @@ export class MemoryIndexManager {
   private async listSessionFiles(): Promise<string[]> {
     const dir = resolveSessionTranscriptsDirForAgent(this.agentId);
     try {
-      const entries = await fs.readdir(dir, { withFileTypes: true });
-      return entries
-        .filter((entry) => entry.isFile())
-        .map((entry) => entry.name)
-        .filter((name) => name.endsWith(".jsonl"))
-        .map((name) => path.join(dir, name));
+      return await listJsonlFilesRecursive(dir);
     } catch {
       return [];
     }
   }
 
   private sessionPathForFile(absPath: string): string {
-    return path.join("sessions", path.basename(absPath)).replace(/\\/g, "/");
+    const sessionsDir = resolveSessionTranscriptsDirForAgent(this.agentId);
+    const relative = path.relative(sessionsDir, absPath);
+    return path.join("sessions", relative).replace(/\\/g, "/");
   }
 
   private normalizeSessionText(value: string): string {
@@ -1672,7 +1669,7 @@ export class MemoryIndexManager {
       }
       const content = collected.join("\n");
       return {
-        path: this.sessionPathForFile(absPath),
+      path: this.sessionPathForFile(absPath),
         absPath,
         mtimeMs: stat.mtimeMs,
         size: stat.size,
@@ -2395,4 +2392,21 @@ export class MemoryIndexManager {
       )
       .run(entry.path, options.source, entry.hash, entry.mtimeMs, entry.size);
   }
+}
+
+async function listJsonlFilesRecursive(dir: string): Promise<string[]> {
+  const results: string[] = [];
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      const nested = await listJsonlFilesRecursive(fullPath);
+      results.push(...nested);
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith(".jsonl")) {
+      results.push(fullPath);
+    }
+  }
+  return results;
 }

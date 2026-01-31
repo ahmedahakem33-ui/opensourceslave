@@ -8,6 +8,7 @@ import type { ImageContent } from "@mariozechner/pi-ai";
 import type { ThinkLevel } from "../../auto-reply/thinking.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import type { CliBackendConfig } from "../../config/types.js";
+import { resolveSessionVaultDir } from "../../infra/storage.js";
 import { runExec } from "../../process/exec.js";
 import type { EmbeddedContextFile } from "../pi-embedded-helpers.js";
 import { buildSystemPromptParams } from "../system-prompt-params.js";
@@ -483,8 +484,13 @@ export function appendImagePathsToPrompt(prompt: string, paths: string[]): strin
 
 export async function writeCliImages(
   images: ImageContent[],
+  opts?: { sessionId?: string; agentId?: string },
 ): Promise<{ paths: string[]; cleanup: () => Promise<void> }> {
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-cli-images-"));
+  const baseDir = opts?.sessionId
+    ? path.join(resolveSessionVaultDir(opts.sessionId, opts.agentId), "tmp")
+    : os.tmpdir();
+  await fs.mkdir(baseDir, { recursive: true });
+  const tempDir = await fs.mkdtemp(path.join(baseDir, "openclaw-cli-images-"));
   const paths: string[] = [];
   for (let i = 0; i < images.length; i += 1) {
     const image = images[i];
