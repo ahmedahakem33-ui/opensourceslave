@@ -1,5 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import { spawn } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 
 import type { OpenClawPluginApi } from "../../../src/plugins/types.js";
@@ -23,10 +24,67 @@ type LobsterEnvelope =
 
 function resolveExecutablePath(lobsterPathRaw: string | undefined) {
   const lobsterPath = lobsterPathRaw?.trim() || "lobster";
-  if (lobsterPath !== "lobster" && !path.isAbsolute(lobsterPath)) {
-    throw new Error("lobsterPath must be an absolute path (or omit to use PATH)");
+
+  // SECURITY:
+  // Never allow arbitrary executables (e.g. /bin/bash). If the caller overrides
+  // the path, it must still be the lobster binary (by name) and be absolute.
+  if (lobsterPath !== "lobster") {
+    if (!path.isAbsolute(lobsterPath)) {
+      throw new Error("lobsterPath must be an absolute path (or omit to use PATH)");
+    }
+    const base = path.basename(lobsterPath).toLowerCase();
+    const allowed =
+      process.platform === "win32"
+        ? ["lobster.exe", "lobster.cmd", "lobster.bat"]
+        : ["lobster"];
+    if (!allowed.includes(base)) {
+      throw new Error("lobsterPath must point to the lobster executable");
+    }
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(lobsterPath);
+    } catch {
+      throw new Error("lobsterPath must exist");
+    }
+    if (!stat.isFile()) {
+      throw new Error("lobsterPath must point to a file");
+    }
+    if (process.platform !== "win32") {
+      try {
+        fs.accessSync(lobsterPath, fs.constants.X_OK);
+      } catch {
+        throw new Error("lobsterPath must be executable");
+      }
+    }
   }
+
   return lobsterPath;
+}
+
+function normalizeForCwdSandbox(p: string): string {
+  const normalized = path.normalize(p);
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function resolveCwd(cwdRaw: unknown): string {
+  if (typeof cwdRaw !== "string" || !cwdRaw.trim()) {
+    return process.cwd();
+  }
+  const cwd = cwdRaw.trim();
+  if (path.isAbsolute(cwd)) {
+    throw new Error("cwd must be a relative path");
+  }
+  const base = process.cwd();
+  const resolved = path.resolve(base, cwd);
+
+  const rel = path.relative(normalizeForCwdSandbox(base), normalizeForCwdSandbox(resolved));
+  if (rel === "" || rel === ".") {
+    return resolved;
+  }
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+    throw new Error("cwd must stay within the gateway working directory");
+  }
+  return resolved;
 }
 
 function isWindowsSpawnEINVAL(err: unknown) {
@@ -180,8 +238,15 @@ export function createLobsterTool(api: OpenClawPluginApi) {
       argsJson: Type.Optional(Type.String()),
       token: Type.Optional(Type.String()),
       approve: Type.Optional(Type.Boolean()),
-      lobsterPath: Type.Optional(Type.String()),
-      cwd: Type.Optional(Type.String()),
+      // SECURITY: Do not allow the agent to choose an executable path.
+      // Host can configure the lobster binary via plugin config.
+      lobsterPath: Type.Optional(Type.String({ description: "(deprecated) Use plugin config instead." })),
+      cwd: Type.Optional(
+        Type.String({
+          description:
+            "Relative working directory (optional). Must stay within the gateway working directory.",
+        }),
+      ),
       timeoutMs: Type.Optional(Type.Number()),
       maxStdoutBytes: Type.Optional(Type.Number()),
     }),
@@ -189,10 +254,17 @@ export function createLobsterTool(api: OpenClawPluginApi) {
       const action = String(params.action || "").trim();
       if (!action) throw new Error("action required");
 
+      // SECURITY: never allow tool callers (agent/user) to select executables.
+      // If a host needs to override the binary, it must do so via plugin config.
+      // We still validate the parameter shape to prevent reintroducing an RCE footgun.
+      if (typeof params.lobsterPath === "string" && params.lobsterPath.trim()) {
+        resolveExecutablePath(params.lobsterPath);
+      }
+
       const execPath = resolveExecutablePath(
-        typeof params.lobsterPath === "string" ? params.lobsterPath : undefined,
+        typeof api.config?.lobsterPath === "string" ? api.config.lobsterPath : undefined,
       );
-      const cwd = typeof params.cwd === "string" && params.cwd.trim() ? params.cwd.trim() : process.cwd();
+      const cwd = resolveCwd(params.cwd);
       const timeoutMs = typeof params.timeoutMs === "number" ? params.timeoutMs : 20_000;
       const maxStdoutBytes = typeof params.maxStdoutBytes === "number" ? params.maxStdoutBytes : 512_000;
 
