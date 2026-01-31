@@ -1,6 +1,6 @@
 ---
 name: blogwatcher
-description: Monitor blogs and RSS/Atom feeds for updates using the blogwatcher CLI.
+description: Monitor multiple blogs and RSS/Atom feeds for new articles, mark them as read, and track updates from the command line. Use when you want to stay notified about new blog posts from your favorite sites without visiting each one manually.
 homepage: https://github.com/Hyaxia/blogwatcher
 metadata: {"openclaw":{"emoji":"📰","requires":{"bins":["blogwatcher"]},"install":[{"id":"go","kind":"go","module":"github.com/Hyaxia/blogwatcher/cmd/blogwatcher@latest","bins":["blogwatcher"],"label":"Install blogwatcher (go)"}]}}
 ---
