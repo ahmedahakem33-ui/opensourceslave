@@ -339,12 +339,16 @@ export class TelnyxProvider implements VoiceCallProvider {
    */
   async getCallStatus(input: GetCallStatusInput): Promise<GetCallStatusResult> {
     const terminalStatuses = new Set([
-      "hangup",
+      "busy",
+      "cancel",
+      "canceled",
+      "cancelled",
       "completed",
       "failed",
-      "busy",
+      "hangup",
       "no_answer",
-      "cancel",
+      "rejected",
+      "timeout",
     ]);
 
     try {
@@ -355,10 +359,11 @@ export class TelnyxProvider implements VoiceCallProvider {
       );
 
       const state = result?.data?.state || "unknown";
+      const normalized = state.toLowerCase();
       const isAlive = result?.data?.is_alive ?? false;
       return {
         status: state,
-        isTerminal: !isAlive || terminalStatuses.has(state),
+        isTerminal: !isAlive || terminalStatuses.has(normalized),
       };
     } catch (err) {
       return {
