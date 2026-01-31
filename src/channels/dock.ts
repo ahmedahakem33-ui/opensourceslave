@@ -1,5 +1,6 @@
 import type { OpenClawConfig } from "../config/config.js";
 import { resolveDiscordAccount } from "../discord/accounts.js";
+import { resolveFeishuAccount } from "../feishu/accounts.js";
 import { resolveIMessageAccount } from "../imessage/accounts.js";
 import { resolveSignalAccount } from "../signal/accounts.js";
 import { resolveSlackAccount, resolveSlackReplyToMode } from "../slack/accounts.js";
@@ -123,6 +124,33 @@ const DOCKS: Record<ChatChannelId, ChannelDock> = {
           hasRepliedRef,
         };
       },
+    },
+  },
+  feishu: {
+    id: "feishu",
+    capabilities: {
+      chatTypes: ["direct", "group"],
+      reactions: false,
+      media: true,
+    },
+    outbound: { textChunkLimit: 4000 },
+    config: {
+      resolveAllowFrom: ({ cfg, accountId }) =>
+        (
+          resolveFeishuAccount({ cfg, accountId: accountId ?? undefined }).config.allowFrom ?? []
+        ).map((entry) => String(entry)),
+      formatAllowFrom: ({ allowFrom }) =>
+        allowFrom.map((entry) => String(entry).trim()).filter(Boolean),
+    },
+    groups: {
+      // Default to requiring mentions in groups for now
+      resolveRequireMention: ({ cfg, accountId }) =>
+        resolveFeishuAccount({ cfg, accountId: accountId ?? undefined }).config.requireMention ??
+        true,
+      resolveToolPolicy: () => undefined,
+    },
+    mentions: {
+      stripPatterns: () => ["@_user_\\d+"], // Basic strip pattern, refine if needed
     },
   },
   whatsapp: {

@@ -144,6 +144,20 @@ import {
 } from "../../line/send.js";
 import { monitorLineProvider } from "../../line/monitor.js";
 import { buildTemplateMessageFromPayload } from "../../line/template-messages.js";
+import {
+  listFeishuAccountIds,
+  normalizeAccountId as normalizeFeishuAccountId,
+  resolveDefaultFeishuAccountId,
+  resolveFeishuAccount,
+  listEnabledFeishuAccounts,
+} from "../../feishu/accounts.js";
+import { probeFeishuBot } from "../../feishu/probe.js";
+import {
+  sendTextMessage as sendMessageFeishu,
+  replyMessage as replyMessageFeishu,
+} from "../../feishu/send.js";
+import { monitorFeishuProvider } from "../../feishu/monitor.js";
+import { feishuMessageActions } from "../../channels/plugins/actions/feishu.js";
 
 import type { PluginRuntime } from "./types.js";
 
@@ -336,6 +350,18 @@ export function createPluginRuntime(): PluginRuntime {
         createQuickReplyItems,
         buildTemplateMessageFromPayload,
         monitorLineProvider,
+      },
+      feishu: {
+        listFeishuAccountIds,
+        resolveDefaultFeishuAccountId,
+        resolveFeishuAccount,
+        listEnabledFeishuAccounts,
+        normalizeAccountId: normalizeFeishuAccountId,
+        probeFeishuBot,
+        sendMessageFeishu,
+        replyMessageFeishu,
+        monitorFeishuProvider,
+        messageActions: feishuMessageActions,
       },
     },
     logging: {

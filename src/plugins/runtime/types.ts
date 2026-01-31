@@ -168,6 +168,21 @@ type BuildTemplateMessageFromPayload =
   typeof import("../../line/template-messages.js").buildTemplateMessageFromPayload;
 type MonitorLineProvider = typeof import("../../line/monitor.js").monitorLineProvider;
 
+// Feishu channel types
+type ListFeishuAccountIds = typeof import("../../feishu/accounts.js").listFeishuAccountIds;
+type ResolveDefaultFeishuAccountId =
+  typeof import("../../feishu/accounts.js").resolveDefaultFeishuAccountId;
+type ResolveFeishuAccount = typeof import("../../feishu/accounts.js").resolveFeishuAccount;
+type ListEnabledFeishuAccounts =
+  typeof import("../../feishu/accounts.js").listEnabledFeishuAccounts;
+type NormalizeFeishuAccountId = typeof import("../../feishu/accounts.js").normalizeAccountId;
+type ProbeFeishuBot = typeof import("../../feishu/probe.js").probeFeishuBot;
+type SendMessageFeishu = typeof import("../../feishu/send.js").sendTextMessage;
+type ReplyMessageFeishu = typeof import("../../feishu/send.js").replyMessage;
+type MonitorFeishuProvider = typeof import("../../feishu/monitor.js").monitorFeishuProvider;
+type FeishuMessageActions =
+  typeof import("../../channels/plugins/actions/feishu.js").feishuMessageActions;
+
 export type RuntimeLogger = {
   debug?: (message: string) => void;
   info: (message: string) => void;
@@ -346,6 +361,18 @@ export type PluginRuntime = {
       createQuickReplyItems: CreateQuickReplyItems;
       buildTemplateMessageFromPayload: BuildTemplateMessageFromPayload;
       monitorLineProvider: MonitorLineProvider;
+    };
+    feishu: {
+      listFeishuAccountIds: ListFeishuAccountIds;
+      resolveDefaultFeishuAccountId: ResolveDefaultFeishuAccountId;
+      resolveFeishuAccount: ResolveFeishuAccount;
+      listEnabledFeishuAccounts: ListEnabledFeishuAccounts;
+      normalizeAccountId: NormalizeFeishuAccountId;
+      probeFeishuBot: ProbeFeishuBot;
+      sendMessageFeishu: SendMessageFeishu;
+      replyMessageFeishu: ReplyMessageFeishu;
+      monitorFeishuProvider: MonitorFeishuProvider;
+      messageActions: FeishuMessageActions;
     };
   };
   logging: {

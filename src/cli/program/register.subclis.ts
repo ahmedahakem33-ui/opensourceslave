@@ -200,6 +200,14 @@ const entries: SubCliEntry[] = [
     },
   },
   {
+    name: "feishu",
+    description: "Feishu channel management",
+    register: async (program) => {
+      const mod = await import("../feishu-cli.js");
+      mod.registerFeishuCli(program);
+    },
+  },
+  {
     name: "directory",
     description: "Directory commands",
     register: async (program) => {

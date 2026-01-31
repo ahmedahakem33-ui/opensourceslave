@@ -195,7 +195,7 @@ async function noteChannelPrimer(
       `Approve with: ${formatCliCommand("openclaw pairing approve <channel> <code>")}`,
       'Public DMs require dmPolicy="open" + allowFrom=["*"].',
       'Multi-user DMs: set session.dmScope="per-channel-peer" (or "per-account-channel-peer" for multi-account channels) to isolate sessions.',
-      `Docs: ${formatDocsLink("/start/pairing", "start/pairing")}`,
+      `Docs: ${formatDocsLink("/start/pairing.html", "start/pairing")}`,
       "",
       ...channelLines,
     ].join("\n"),
@@ -249,7 +249,7 @@ async function maybeConfigureDmPolicies(params: {
         `Allowlist DMs: ${policy.policyKey}="allowlist" + ${policy.allowFromKey} entries.`,
         `Public DMs: ${policy.policyKey}="open" + ${policy.allowFromKey} includes "*".`,
         'Multi-user DMs: set session.dmScope="per-channel-peer" (or "per-account-channel-peer" for multi-account channels) to isolate sessions.',
-        `Docs: ${formatDocsLink("/start/pairing", "start/pairing")}`,
+        `Docs: ${formatDocsLink("/start/pairing.html", "start/pairing")}`,
       ].join("\n"),
       `${policy.label} DM access`,
     );
