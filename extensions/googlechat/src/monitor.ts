@@ -14,6 +14,7 @@ import {
 } from "./api.js";
 import { verifyGoogleChatRequest, type GoogleChatAudienceType } from "./auth.js";
 import { getGoogleChatRuntime } from "./runtime.js";
+import { extractSpaceInfoFromEvent, buildSpaceCachePatch } from "./space-cache.js";
 import type {
   GoogleChatAnnotation,
   GoogleChatAttachment,
@@ -263,6 +264,19 @@ export async function handleGoogleChatWebhookRequest(
   }
 
   selected.statusSink?.({ lastInboundAt: Date.now() });
+
+  // For synchronous responses in spaces, handle non-MESSAGE events immediately
+  const evtType = (event.type ?? (event as { eventType?: string }).eventType)?.toUpperCase();
+  const isGroup = event.space?.type?.toUpperCase() !== "DM";
+
+  // For non-MESSAGE events in groups (like ADDED_TO_SPACE), return an acknowledgment
+  if (isGroup && evtType !== "MESSAGE") {
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ text: "Hello! I'm ready to help. 🦞" }));
+    return true;
+  }
+
   processGoogleChatEvent(event, selected).catch((err) => {
     selected?.runtime.error?.(
       `[${selected.account.accountId}] Google Chat webhook failed: ${String(err)}`,
@@ -393,6 +407,18 @@ async function processMessageWithPipeline(params: {
   const senderId = sender?.name ?? "";
   const senderName = sender?.displayName ?? "";
   const senderEmail = sender?.email ?? undefined;
+
+  // Cache space mapping for proactive messaging
+  if (senderId && spaceId) {
+    const spaceInfo = extractSpaceInfoFromEvent(event);
+    if (spaceInfo) {
+      const cachePatch = buildSpaceCachePatch(spaceInfo, account.accountId);
+      core.config.patchConfig(cachePatch).catch((err: Error) => {
+        logVerbose(core, runtime, `failed to cache space: ${err.message}`);
+      });
+      logVerbose(core, runtime, `cached space ${spaceId} for user ${senderId}`);
+    }
+  }
 
   const allowBots = account.config.allowBots === true;
   if (!allowBots) {
@@ -629,6 +655,9 @@ async function processMessageWithPipeline(params: {
     GroupSystemPrompt: isGroup ? groupSystemPrompt : undefined,
     OriginatingChannel: "googlechat",
     OriginatingTo: `googlechat:${spaceId}`,
+    // Thread reply context
+    IsThreadReply: message.threadReply,
+    QuotedMessageId: message.quotedMessageMetadata?.name,
   });
 
   void core.channel.session
