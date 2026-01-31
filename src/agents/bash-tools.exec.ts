@@ -56,7 +56,7 @@ import { listNodes, resolveNodeIdFromList } from "./tools/nodes-utils.js";
 import { getShellConfig, sanitizeBinaryOutput } from "./shell-utils.js";
 import { buildCursorPositionResponse, stripDsrRequests } from "./pty-dsr.js";
 import { parseAgentSessionKey, resolveAgentIdFromSessionKey } from "../routing/session-key.js";
-import { findShieldShellMatches } from "../security/shield-shell.js";
+import { findShieldShellMatches } from "./security/shield-shell.js";
 
 const DEFAULT_MAX_OUTPUT = clampNumber(
   readEnvInt("PI_BASH_MAX_OUTPUT_CHARS"),
@@ -257,7 +257,6 @@ function renderExecHostLabel(host: ExecHost) {
 function normalizeNotifyOutput(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
-
 
 function normalizePathPrepend(entries?: string[]) {
   if (!Array.isArray(entries)) {
