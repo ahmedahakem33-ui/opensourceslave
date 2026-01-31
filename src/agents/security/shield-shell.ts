@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { analyzeShellCommand } from "../../infra/exec-approvals.js";
+import { analyzeShellCommand } from "./shell-analysis.js";
 
 const SHIELD_SHELL_BLOCKLIST = new Set(["rm", "chmod", "env", "curl"]);
 
