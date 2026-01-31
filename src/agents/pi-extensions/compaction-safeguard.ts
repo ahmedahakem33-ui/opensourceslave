@@ -146,7 +146,30 @@ export default function compactionSafeguardExtension(api: ExtensionAPI): void {
     const toolFailureSection = formatToolFailuresSection(toolFailures);
     const fallbackSummary = `${FALLBACK_SUMMARY}${toolFailureSection}${fileOpsSummary}`;
 
-    const model = ctx.model;
+    let model = ctx.model;
+
+    // Workaround: In OpenClaw embedded mode, extensionRunner.initialize() is
+    // never called, so ctx.model is always undefined. Fall back to finding the
+    // model from the registry by scanning all available models.
+    if (!model && ctx.modelRegistry) {
+      try {
+        const allModels = (ctx.modelRegistry as Record<string, unknown>).getAll?.() as
+          | string[]
+          | undefined;
+        if (allModels) {
+          for (const m of allModels) {
+            const key = await ctx.modelRegistry.getApiKey(m);
+            if (key) {
+              model = m;
+              break;
+            }
+          }
+        }
+      } catch {
+        // ignore - getAll may not exist on all registry implementations
+      }
+    }
+
     if (!model) {
       return {
         compaction: {
