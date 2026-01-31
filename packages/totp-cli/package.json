@@ -1,0 +1,24 @@
+{
+  "name": "@openclaw/totp",
+  "version": "1.0.0",
+  "description": "Standalone TOTP (Time-based One-Time Password) CLI tool",
+  "type": "module",
+  "bin": {
+    "totp": "./totp.mjs"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "totp",
+    "otp",
+    "2fa",
+    "authenticator",
+    "rfc6238"
+  ],
+  "author": "OpenClaw",
+  "license": "MIT",
+  "dependencies": {
+    "otpauth": "^9.3.6"
+  }
+}
