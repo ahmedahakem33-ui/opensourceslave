@@ -49,6 +49,11 @@ export type ChannelsAddOptions = {
   groupChannels?: string;
   dmAllowlist?: string;
   autoDiscoverChannels?: boolean;
+  // Universal IM specific
+  outboundUrl?: string;
+  provider?: string;
+  transport?: string;
+  dmPolicy?: string;
 };
 
 function parseList(value: string | undefined): string[] | undefined {
@@ -227,6 +232,11 @@ export async function channelsAddCommand(
       groupChannels,
       dmAllowlist,
       autoDiscoverChannels: opts.autoDiscoverChannels,
+      // Universal IM specific
+      outboundUrl: opts.outboundUrl,
+      provider: opts.provider,
+      transport: opts.transport,
+      dmPolicy: opts.dmPolicy,
     },
   });
   if (validationError) {
@@ -270,6 +280,11 @@ export async function channelsAddCommand(
     groupChannels,
     dmAllowlist,
     autoDiscoverChannels: opts.autoDiscoverChannels,
+    // Universal IM specific
+    outboundUrl: opts.outboundUrl,
+    provider: opts.provider,
+    transport: opts.transport,
+    dmPolicy: opts.dmPolicy,
   });
 
   await writeConfigFile(nextConfig);

@@ -71,3 +71,6 @@ USER.md
 
 # local tooling
 .serena/
+/md/project.md
+/md/result_v1.md
+.idea/
