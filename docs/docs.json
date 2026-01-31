@@ -1020,6 +1020,7 @@
           "channels/matrix",
           "channels/zalo",
           "channels/zalouser",
+          "channels/feishu",
           "broadcast-groups",
           "channels/troubleshooting",
           "channels/location"
